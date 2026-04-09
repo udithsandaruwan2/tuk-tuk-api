@@ -1,0 +1,14 @@
+[
+  {
+    "code": "WP",
+    "name": "Western"
+  },
+  {
+    "code": "CP",
+    "name": "Central"
+  },
+  {
+    "code": "SP",
+    "name": "Southern"
+  }
+]

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tuk-tuk-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tuk_tuk
+      POSTGRES_PASSWORD: tuk_tuk_dev
+      POSTGRES_DB: tuk_tuk
+    ports:
+      - "5433:5432"
+    volumes:
+      - tuk_tuk_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tuk_tuk -d tuk_tuk"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  tuk_tuk_pgdata:

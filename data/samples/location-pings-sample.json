@@ -1,0 +1,18 @@
+[
+  {
+    "vehicleId": "00000000-0000-4000-8000-000000000001",
+    "recordedAt": "2026-04-01T00:30:00.000Z",
+    "latitude": 6.9271,
+    "longitude": 79.8612,
+    "speedKmh": 18.5,
+    "headingDeg": 95
+  },
+  {
+    "vehicleId": "00000000-0000-4000-8000-000000000001",
+    "recordedAt": "2026-04-01T01:00:00.000Z",
+    "latitude": 6.928,
+    "longitude": 79.862,
+    "speedKmh": 22.0,
+    "headingDeg": 275
+  }
+]

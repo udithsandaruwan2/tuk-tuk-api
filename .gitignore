@@ -70,6 +70,13 @@ web_modules/
 .env.*
 !.env.example
 
+# Cursor / local IDE state
+.cursor/
+
+# OS / editor noise
+.DS_Store
+.idea/
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

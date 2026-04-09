@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  HQ_ADMIN
+  PROVINCIAL
+  STATION
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Province {
+  id         String     @id @default(uuid())
+  code       String     @unique
+  name       String
+  districts  District[]
+  users      User[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model District {
+  id         String          @id @default(uuid())
+  code       String          @unique
+  name       String
+  provinceId String
+  province   Province        @relation(fields: [provinceId], references: [id], onDelete: Restrict)
+  stations   PoliceStation[]
+  vehicles   Vehicle[]
+
+  @@index([provinceId])
+}
+
+model PoliceStation {
+  id         String    @id @default(uuid())
+  code       String    @unique
+  name       String
+  districtId String
+  district   District  @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  vehicles   Vehicle[]
+  users      User[]
+
+  @@index([districtId])
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String
+  role         UserRole
+  /// HQ_ADMIN: no scope. PROVINCIAL: limited to province. STATION: limited to station (and its district).
+  provinceId   String?
+  stationId    String?
+  province     Province?      @relation(fields: [provinceId], references: [id], onDelete: SetNull)
+  station      PoliceStation? @relation(fields: [stationId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([role])
+  @@index([provinceId])
+  @@index([stationId])
+}
+
+model Vehicle {
+  id                  String          @id @default(uuid())
+  registrationNumber  String          @unique
+  status              VehicleStatus   @default(ACTIVE)
+  districtId          String
+  stationId           String?
+  driverName          String?
+  driverLicense       String?
+  district            District        @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  station             PoliceStation?  @relation(fields: [stationId], references: [id], onDelete: SetNull)
+  devices             TrackerDevice[]
+  locationPings       LocationPing[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([districtId])
+  @@index([stationId])
+  @@index([status])
+  @@index([districtId, status])
+}
+
+model TrackerDevice {
+  id          String    @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  /// Bcrypt hash of the plaintext API key shown once at registration.
+  apiKeyHash  String
+  label       String?
+  isActive    Boolean   @default(true)
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([vehicleId])
+  @@index([isActive])
+}
+
+/// GPS samples in UTC. Application layer maps to Asia/Colombo for display.
+model LocationPing {
+  id          String   @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  recordedAt  DateTime
+  latitude    Float
+  longitude   Float
+  speedKmh    Float?
+  headingDeg  Float?
+  createdAt   DateTime @default(now())
+
+  @@index([vehicleId, recordedAt(sort: Desc)])
+  @@index([recordedAt])
+}
