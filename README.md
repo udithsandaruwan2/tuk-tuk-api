@@ -4,15 +4,19 @@ REST API project (NIBM / Coventry NB6007CEM coursework): real-time tuk-tuk track
 
 **Student ID:** _add your student ID here_
 
-## Week 1 status
+## Week 1-2 status
 
 - Node.js **ESM** toolchain, ESLint, Prettier, `src/` layout (`routes`, `services`, `middleware`).
 - **PostgreSQL** + **Prisma** schema: provinces, districts, police stations, users, vehicles, tracker devices, location pings (indexed for history queries).
 - **Docker Compose** for local Postgres.
 - **Seeds**: 9 provinces, 25 districts, 26 police stations, 200 vehicles + devices, ~8 days of 30‑minute GPS samples (06:00–22:00 Asia/Colombo), demo users.
+- Week 2 API shell: Express app, central error handler, request logging, `/health`.
+- Week 2 read endpoints under `/v1`:
+  - Boundaries: `GET /provinces`, `GET /districts`, `GET /stations`, `GET /districts/:districtId/stations`
+  - Vehicles: `GET /vehicles`, `GET /vehicles/:vehicleId`, `GET /vehicles/:vehicleId/location/latest`, `GET /vehicles/:vehicleId/locations?from=&to=`
+  - Ops analytics: `GET /analytics/vehicles-by-district`, `GET /analytics/active-vehicles?minutes=30`
+- Swagger stubs published at `/api-docs`.
 - Docs: [`docs/adr/`](docs/adr/), [`docs/data-dictionary.md`](docs/data-dictionary.md), [`docs/simulation.md`](docs/simulation.md), sample JSON under [`data/samples/`](data/samples/).
-
-HTTP routes and deployment arrive in later weeks.
 
 ## Prerequisites
 
@@ -35,14 +39,14 @@ Use `npm run db:studio` to browse tables.
 
 ### Scripts
 
-| Script                            | Purpose                                                |
-| --------------------------------- | ------------------------------------------------------ |
-| `npm run dev`                     | Placeholder process (Week 2+ will run the HTTP server) |
-| `npm run db:migrate:dev`          | Create/apply migrations (development)                  |
-| `npm run db:migrate`              | Apply migrations (production/CD)                       |
-| `npm run db:seed`                 | Run `prisma/seed.js`                                   |
-| `npm run db:reset`                | Reset DB + migrate + seed                              |
-| `npm run lint` / `npm run format` | Code style                                             |
+| Script                            | Purpose                               |
+| --------------------------------- | ------------------------------------- |
+| `npm run dev`                     | Run API server in watch mode          |
+| `npm run db:migrate:dev`          | Create/apply migrations (development) |
+| `npm run db:migrate`              | Apply migrations (production/CD)      |
+| `npm run db:seed`                 | Run `prisma/seed.js`                  |
+| `npm run db:reset`                | Reset DB + migrate + seed             |
+| `npm run lint` / `npm run format` | Code style                            |
 
 ## Deployed API (fill in after Week 4)
 
