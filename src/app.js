@@ -15,11 +15,12 @@ const origins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const allowAllOrigins = origins.includes("*");
 
 app.use(helmet());
 app.use(
   cors({
-    origin: origins.length > 0 ? origins : true
+    origin: allowAllOrigins || origins.length === 0 ? true : origins
   })
 );
 app.use(hpp());

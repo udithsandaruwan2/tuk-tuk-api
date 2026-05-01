@@ -37,8 +37,23 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
+          envs: PORT,NODE_ENV,JWT_SECRET,JWT_EXPIRES_IN,ALLOWED_ORIGINS,DATABASE_URL
           script: |
             cd ~/tuk-tuk-api
             git pull origin main
-            docker compose down
-            docker compose up -d --build
+            cat > .env.docker <<EOF
+            PORT=${PORT}
+            NODE_ENV=${NODE_ENV}
+            JWT_SECRET=${JWT_SECRET}
+            JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+            ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+            DATABASE_URL=${DATABASE_URL}
+            EOF
+            docker compose up -d --build --remove-orphans
+        env:
+          PORT: ${{ secrets.PORT }}
+          NODE_ENV: ${{ secrets.NODE_ENV }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
