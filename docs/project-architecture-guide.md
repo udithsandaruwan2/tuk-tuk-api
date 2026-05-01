@@ -51,8 +51,6 @@ flowchart LR
   Api --> Docs[Swagger UI /api-docs]
 ```
 
-
-
 ### Layer responsibilities
 
 - **API layer** (`src/index.js`)
@@ -119,8 +117,6 @@ erDiagram
   Province ||--o{ User : scoped
   PoliceStation ||--o{ User : scoped
 ```
-
-
 
 ### Main models
 
@@ -243,8 +239,6 @@ sequenceDiagram
   R-->>C: JSON {data,page,limit,total}
 ```
 
-
-
 ### B) Get latest known location
 
 ```mermaid
@@ -265,8 +259,6 @@ sequenceDiagram
   D-->>P: single ping
   R-->>C: JSON {vehicle, latest}
 ```
-
-
 
 ---
 
@@ -312,4 +304,3 @@ Use this order when explaining in viva:
 5. **API behavior**: filters, pagination, date-window validation.
 6. **Current delivery status**: Week 1-3 complete with seeded realistic data and protected APIs.
 7. **Roadmap**: Week 4 hardening/deploy/report.
-
