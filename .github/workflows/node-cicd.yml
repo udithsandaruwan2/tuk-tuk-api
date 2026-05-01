@@ -37,7 +37,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
-          envs: PORT,NODE_ENV,JWT_SECRET,JWT_EXPIRES_IN,ALLOWED_ORIGINS,DATABASE_URL
+          envs: PORT,NODE_ENV,JWT_SECRET,JWT_EXPIRES_IN,ALLOWED_ORIGINS,DATABASE_URL,APP_DOMAIN,LETSENCRYPT_EMAIL
           script: |
             cd ~/tuk-tuk-api
             git pull origin main
@@ -49,6 +49,8 @@ jobs:
             ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
             DATABASE_URL=${DATABASE_URL}
             EOF
+            export APP_DOMAIN="${APP_DOMAIN}"
+            export LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL}"
             docker compose up -d --build --remove-orphans
         env:
           PORT: ${{ secrets.PORT }}
@@ -57,3 +59,5 @@ jobs:
           JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+          LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
