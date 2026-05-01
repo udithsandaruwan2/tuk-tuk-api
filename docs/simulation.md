@@ -3,7 +3,7 @@
 ## Administrative reference data
 
 - **9 provinces** — Western, Central, Southern, Northern, Eastern, North Western, North Central, Uva, Sabaragamuwa (`Province.code` matches common abbreviations, e.g. `WP`).
-- **25 districts** — real district names with approximate centroid latitude/longitude for generating plausible GPS noise per district (`prisma/seed.js`).
+- **25 districts** — real district names with approximate centroid latitude/longitude for generating plausible GPS noise per district (`scripts/seed-mongo.js`).
 - **26 police stations** — at least one station per seeded district (including Mullaitivu); codes like `COL-FT`, `KAN-01`.
 
 ## Vehicles and devices
@@ -36,7 +36,7 @@ Plaintext password for all seeded users: `ChangeMe!Dev1` (bcrypt-hashed in DB).
 
 ## Re-running seeds
 
-`prisma/seed.js` deletes all vehicles, devices, and pings before re-inserting, so reference geography and users are upserted safely while vehicles/pings stay reproducible in structure (timestamps depend on “today”).
+`scripts/seed-mongo.js` resets seeded collections and re-inserts the full reference/simulation dataset so demo behavior stays consistent (timestamps depend on current date).
 
 ## Export samples
 

@@ -2,6 +2,7 @@
 
 Legend: **R** read, **W** write (enforcement arrives in Week 3 with authentication).
 
+
 | Entity            | Key fields                                                                                  | Notes                                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | **Province**      | `code`, `name`                                                                              | 9 rows seed. **R**: all authenticated tiers (later). **W**: HQ only (later).                                |
@@ -12,6 +13,7 @@ Legend: **R** read, **W** write (enforcement arrives in Week 3 with authenticati
 | **TrackerDevice** | `vehicleId`, `apiKeyHash`, `label`, `isActive`, `lastSeenAt`                                | **W**: admin provisioning (later). **Ping auth** uses API key (Week 3).                                     |
 | **LocationPing**  | `vehicleId`, `recordedAt` (UTC), `latitude`, `longitude`, `speedKmh?`, `headingDeg?`        | **R**: history windows. **W**: device ingest (later).                                                       |
 
+
 ## Enumerations
 
 - `UserRole`: `HQ_ADMIN`, `PROVINCIAL`, `STATION`
@@ -21,3 +23,4 @@ Legend: **R** read, **W** write (enforcement arrives in Week 3 with authenticati
 
 - Every vehicle belongs to exactly one district; station assignment is optional but seeded for all demo vehicles.
 - Deleting a vehicle cascades to its devices and location pings.
+

@@ -17,6 +17,6 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/**", "prisma/migrations/**"],
+    ignores: ["node_modules/**"],
   },
 ];

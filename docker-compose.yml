@@ -1,21 +1,35 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: tuk-tuk-postgres
+  mongo:
+    image: mongo:7
+    container_name: tuk-tuk-mongo
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: tuk_tuk
-      POSTGRES_PASSWORD: tuk_tuk_dev
-      POSTGRES_DB: tuk_tuk
     ports:
-      - "5433:5432"
+      - "27017:27017"
     volumes:
-      - tuk_tuk_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tuk_tuk -d tuk_tuk"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - tuk_tuk_mongo_data:/data/db
+    networks:
+      - app_network
+
+  api:
+    build: .
+    container_name: tuk-tuk-api
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/tuk_tuk}
+      - JWT_SECRET=${JWT_SECRET:-dev-only-change-me}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+    ports:
+      - "${API_PORT:-3001}:3000"
+    networks:
+      - app_network
 
 volumes:
-  tuk_tuk_pgdata:
+  tuk_tuk_mongo_data:
+
+networks:
+  app_network:
+    driver: bridge

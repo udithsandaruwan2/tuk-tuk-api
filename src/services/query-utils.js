@@ -1,4 +1,5 @@
 import { createHttpError } from "../middleware/error-handler.js";
+import { mongoose } from "./db.js";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -55,4 +56,21 @@ export function parseDateRange(query, maxDays = 31) {
   }
 
   return { fromDate, toDate };
+}
+
+export function parseObjectId(value, fieldName = "id", required = false) {
+  if (!value) {
+    if (required) {
+      throw createHttpError(400, "VALIDATION_ERROR", `\`${fieldName}\` is required.`);
+    }
+    return null;
+  }
+  if (!mongoose.Types.ObjectId.isValid(value)) {
+    throw createHttpError(
+      400,
+      "VALIDATION_ERROR",
+      `\`${fieldName}\` must be a valid Mongo ObjectId.`,
+    );
+  }
+  return new mongoose.Types.ObjectId(value);
 }

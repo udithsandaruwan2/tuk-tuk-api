@@ -1,101 +1,109 @@
-const apiTag = [{ name: "Week2-Read" }];
+const apiTags = [
+  { name: "Auth" },
+  { name: "Boundaries" },
+  { name: "Vehicles" },
+  { name: "Analytics" },
+  { name: "Ingest" },
+];
 
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "Tuk-Tuk Tracking API",
-    version: "0.2.0",
+    version: "0.3.0",
     description:
-      "Week 2 read endpoints for boundaries, vehicles, latest location, history and analytics.",
+      "Week 3 includes JWT user auth, role-scoped reads, admin writes, and secured device ping ingest.",
   },
-  servers: [
-    {
-      url: "http://localhost:3000",
-      description: "Local development",
+  servers: [{ url: "http://localhost:3000", description: "Local development" }],
+  tags: apiTags,
+  components: {
+    securitySchemes: {
+      bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+      deviceApiKey: { type: "apiKey", in: "header", name: "x-device-key" },
     },
-  ],
-  tags: apiTag,
+  },
   paths: {
+    "/": {
+      get: {
+        tags: ["Auth"],
+        summary: "Service root",
+      },
+    },
     "/health": {
       get: {
-        tags: ["Week2-Read"],
+        tags: ["Auth"],
         summary: "Health check",
-        responses: {
-          200: {
-            description: "API is healthy",
-          },
-        },
+      },
+    },
+    "/v1/auth/login": {
+      post: {
+        tags: ["Auth"],
+        summary: "User login to obtain JWT",
       },
     },
     "/v1/provinces": {
-      get: {
-        tags: ["Week2-Read"],
-        summary: "List provinces",
-      },
+      get: { tags: ["Boundaries"], summary: "List provinces", security: [{ bearerAuth: [] }] },
     },
     "/v1/districts": {
-      get: {
-        tags: ["Week2-Read"],
-        summary: "List districts with province filters",
-      },
+      get: { tags: ["Boundaries"], summary: "List districts", security: [{ bearerAuth: [] }] },
     },
     "/v1/stations": {
-      get: {
-        tags: ["Week2-Read"],
-        summary: "List police stations with district/province filters",
-      },
+      get: { tags: ["Boundaries"], summary: "List stations", security: [{ bearerAuth: [] }] },
     },
     "/v1/vehicles": {
-      get: {
-        tags: ["Week2-Read"],
-        summary: "List vehicles with scope filters",
-      },
+      get: { tags: ["Vehicles"], summary: "List vehicles", security: [{ bearerAuth: [] }] },
+      post: { tags: ["Vehicles"], summary: "Create vehicle", security: [{ bearerAuth: [] }] },
     },
     "/v1/vehicles/{vehicleId}": {
       get: {
-        tags: ["Week2-Read"],
+        tags: ["Vehicles"],
         summary: "Get vehicle detail",
         parameters: [{ in: "path", name: "vehicleId", required: true, schema: { type: "string" } }],
+        security: [{ bearerAuth: [] }],
+      },
+      patch: {
+        tags: ["Vehicles"],
+        summary: "Update vehicle",
+        parameters: [{ in: "path", name: "vehicleId", required: true, schema: { type: "string" } }],
+        security: [{ bearerAuth: [] }],
       },
     },
     "/v1/vehicles/{vehicleId}/location/latest": {
       get: {
-        tags: ["Week2-Read"],
+        tags: ["Vehicles"],
         summary: "Get latest location ping",
         parameters: [{ in: "path", name: "vehicleId", required: true, schema: { type: "string" } }],
+        security: [{ bearerAuth: [] }],
       },
     },
     "/v1/vehicles/{vehicleId}/locations": {
       get: {
-        tags: ["Week2-Read"],
-        summary: "Get historical location pings by time window",
-        parameters: [
-          { in: "path", name: "vehicleId", required: true, schema: { type: "string" } },
-          {
-            in: "query",
-            name: "from",
-            required: true,
-            schema: { type: "string", format: "date-time" },
-          },
-          {
-            in: "query",
-            name: "to",
-            required: true,
-            schema: { type: "string", format: "date-time" },
-          },
-        ],
+        tags: ["Vehicles"],
+        summary: "Get historical location pings",
+        parameters: [{ in: "path", name: "vehicleId", required: true, schema: { type: "string" } }],
+        security: [{ bearerAuth: [] }],
       },
     },
     "/v1/analytics/vehicles-by-district": {
       get: {
-        tags: ["Week2-Read"],
-        summary: "Count active vehicles by district",
+        tags: ["Analytics"],
+        summary: "Active vehicles by district",
+        security: [{ bearerAuth: [] }],
       },
     },
     "/v1/analytics/active-vehicles": {
       get: {
-        tags: ["Week2-Read"],
-        summary: "Vehicles active in recent minutes",
+        tags: ["Analytics"],
+        summary: "Recently active vehicles",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    "/v1/devices/{deviceId}/pings": {
+      post: {
+        tags: ["Ingest"],
+        summary: "Device location ingest",
+        parameters: [{ in: "path", name: "deviceId", required: true, schema: { type: "string" } }],
+        security: [{ deviceApiKey: [] }],
       },
     },
   },
