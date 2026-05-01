@@ -1,11 +1,13 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+COPY prisma ./prisma
+RUN npm ci --omit=dev && npx prisma generate
 
 COPY . .
 
-EXPOSE 3000
-CMD ["npm", "run", "start"]
+EXPOSE 8000
+
+CMD ["node", "src/index.js"]

@@ -69,6 +69,7 @@ web_modules/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 
 # Cursor / local IDE state
 .cursor/

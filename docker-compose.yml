@@ -1,34 +1,39 @@
+version: "3.9"
+
 services:
-  mongo:
-    image: mongo:7
-    container_name: tuk-tuk-mongo
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - tuk_tuk_mongo_data:/data/db
-    networks:
-      - app_network
-
-  api:
-    build: .
-    container_name: tuk-tuk-api
-    restart: unless-stopped
-    depends_on:
-      - mongo
+  traefik:
+    image: traefik:v2.11
     environment:
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/tuk_tuk}
-      - JWT_SECRET=${JWT_SECRET:-dev-only-change-me}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
-      - NODE_ENV=${NODE_ENV:-production}
-      - PORT=3000
+      - DOCKER_API_VERSION=1.54
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=app_network"
+      - "--entrypoints.web.address=:80"
     ports:
-      - "${API_PORT:-3001}:3000"
+      - "8081:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - app_network
 
-volumes:
-  tuk_tuk_mongo_data:
+  app:
+    build: .
+    command: node src/index.js
+    env_file:
+      - .env.docker
+    ports:
+      - "8000:8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.entrypoints=web"
+      - "traefik.http.routers.app.rule=PathPrefix(`/`)"
+      - "traefik.http.services.app.loadbalancer.server.port=8000"
+    networks:
+      - app_network
 
 networks:
   app_network:

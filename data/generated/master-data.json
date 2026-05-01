@@ -1,0 +1,316 @@
+{
+  "provinces": [
+    {
+      "name": "Western",
+      "code": "LK-1"
+    },
+    {
+      "name": "Central",
+      "code": "LK-2"
+    },
+    {
+      "name": "Southern",
+      "code": "LK-3"
+    },
+    {
+      "name": "Northern",
+      "code": "LK-4"
+    },
+    {
+      "name": "Eastern",
+      "code": "LK-5"
+    },
+    {
+      "name": "North Western",
+      "code": "LK-6"
+    },
+    {
+      "name": "North Central",
+      "code": "LK-7"
+    },
+    {
+      "name": "Uva",
+      "code": "LK-8"
+    },
+    {
+      "name": "Sabaragamuwa",
+      "code": "LK-9"
+    }
+  ],
+  "districts": [
+    {
+      "name": "Colombo",
+      "code": "COL",
+      "provinceCode": "LK-1"
+    },
+    {
+      "name": "Gampaha",
+      "code": "GAM",
+      "provinceCode": "LK-1"
+    },
+    {
+      "name": "Kalutara",
+      "code": "KAL",
+      "provinceCode": "LK-1"
+    },
+    {
+      "name": "Kandy",
+      "code": "KAN",
+      "provinceCode": "LK-2"
+    },
+    {
+      "name": "Matale",
+      "code": "MAT",
+      "provinceCode": "LK-2"
+    },
+    {
+      "name": "Nuwara Eliya",
+      "code": "NUE",
+      "provinceCode": "LK-2"
+    },
+    {
+      "name": "Galle",
+      "code": "GAL",
+      "provinceCode": "LK-3"
+    },
+    {
+      "name": "Matara",
+      "code": "MTR",
+      "provinceCode": "LK-3"
+    },
+    {
+      "name": "Hambantota",
+      "code": "HAM",
+      "provinceCode": "LK-3"
+    },
+    {
+      "name": "Jaffna",
+      "code": "JAF",
+      "provinceCode": "LK-4"
+    },
+    {
+      "name": "Kilinochchi",
+      "code": "KIL",
+      "provinceCode": "LK-4"
+    },
+    {
+      "name": "Mannar",
+      "code": "MAN",
+      "provinceCode": "LK-4"
+    },
+    {
+      "name": "Mullaitivu",
+      "code": "MUL",
+      "provinceCode": "LK-4"
+    },
+    {
+      "name": "Vavuniya",
+      "code": "VAV",
+      "provinceCode": "LK-4"
+    },
+    {
+      "name": "Batticaloa",
+      "code": "BAT",
+      "provinceCode": "LK-5"
+    },
+    {
+      "name": "Ampara",
+      "code": "AMP",
+      "provinceCode": "LK-5"
+    },
+    {
+      "name": "Trincomalee",
+      "code": "TRI",
+      "provinceCode": "LK-5"
+    },
+    {
+      "name": "Kurunegala",
+      "code": "KUR",
+      "provinceCode": "LK-6"
+    },
+    {
+      "name": "Puttalam",
+      "code": "PUT",
+      "provinceCode": "LK-6"
+    },
+    {
+      "name": "Anuradhapura",
+      "code": "ANU",
+      "provinceCode": "LK-7"
+    },
+    {
+      "name": "Polonnaruwa",
+      "code": "POL",
+      "provinceCode": "LK-7"
+    },
+    {
+      "name": "Badulla",
+      "code": "BAD",
+      "provinceCode": "LK-8"
+    },
+    {
+      "name": "Monaragala",
+      "code": "MON",
+      "provinceCode": "LK-8"
+    },
+    {
+      "name": "Ratnapura",
+      "code": "RAT",
+      "provinceCode": "LK-9"
+    },
+    {
+      "name": "Kegalle",
+      "code": "KEG",
+      "provinceCode": "LK-9"
+    }
+  ],
+  "stations": [
+    {
+      "name": "Colombo Fort",
+      "code": "ST-COL-01",
+      "districtCode": "COL",
+      "lat": 6.9342,
+      "lng": 79.8428
+    },
+    {
+      "name": "Wellawatte",
+      "code": "ST-COL-02",
+      "districtCode": "COL",
+      "lat": 6.8758,
+      "lng": 79.8592
+    },
+    {
+      "name": "Negombo",
+      "code": "ST-GAM-01",
+      "districtCode": "GAM",
+      "lat": 7.2084,
+      "lng": 79.8358
+    },
+    {
+      "name": "Gampaha Town",
+      "code": "ST-GAM-02",
+      "districtCode": "GAM",
+      "lat": 7.0873,
+      "lng": 79.9992
+    },
+    {
+      "name": "Kalutara South",
+      "code": "ST-KAL-01",
+      "districtCode": "KAL",
+      "lat": 6.5854,
+      "lng": 79.9607
+    },
+    {
+      "name": "Kandy",
+      "code": "ST-KAN-01",
+      "districtCode": "KAN",
+      "lat": 7.2906,
+      "lng": 80.6337
+    },
+    {
+      "name": "Nuwara Eliya",
+      "code": "ST-NUE-01",
+      "districtCode": "NUE",
+      "lat": 6.9497,
+      "lng": 80.7891
+    },
+    {
+      "name": "Galle Central",
+      "code": "ST-GAL-01",
+      "districtCode": "GAL",
+      "lat": 6.032,
+      "lng": 80.2168
+    },
+    {
+      "name": "Matara",
+      "code": "ST-MTR-01",
+      "districtCode": "MTR",
+      "lat": 5.9549,
+      "lng": 80.5549
+    },
+    {
+      "name": "Jaffna",
+      "code": "ST-JAF-01",
+      "districtCode": "JAF",
+      "lat": 9.6615,
+      "lng": 80.0255
+    },
+    {
+      "name": "Batticaloa",
+      "code": "ST-BAT-01",
+      "districtCode": "BAT",
+      "lat": 7.717,
+      "lng": 81.7003
+    },
+    {
+      "name": "Ampara",
+      "code": "ST-AMP-01",
+      "districtCode": "AMP",
+      "lat": 7.2917,
+      "lng": 81.6747
+    },
+    {
+      "name": "Trincomalee",
+      "code": "ST-TRI-01",
+      "districtCode": "TRI",
+      "lat": 8.5874,
+      "lng": 81.2152
+    },
+    {
+      "name": "Kurunegala",
+      "code": "ST-KUR-01",
+      "districtCode": "KUR",
+      "lat": 7.4863,
+      "lng": 80.3647
+    },
+    {
+      "name": "Puttalam",
+      "code": "ST-PUT-01",
+      "districtCode": "PUT",
+      "lat": 8.0329,
+      "lng": 79.8283
+    },
+    {
+      "name": "Anuradhapura",
+      "code": "ST-ANU-01",
+      "districtCode": "ANU",
+      "lat": 8.3114,
+      "lng": 80.4037
+    },
+    {
+      "name": "Polonnaruwa",
+      "code": "ST-POL-01",
+      "districtCode": "POL",
+      "lat": 7.9403,
+      "lng": 81.0188
+    },
+    {
+      "name": "Badulla",
+      "code": "ST-BAD-01",
+      "districtCode": "BAD",
+      "lat": 6.9934,
+      "lng": 81.055
+    },
+    {
+      "name": "Monaragala",
+      "code": "ST-MON-01",
+      "districtCode": "MON",
+      "lat": 6.8728,
+      "lng": 81.3497
+    },
+    {
+      "name": "Ratnapura",
+      "code": "ST-RAT-01",
+      "districtCode": "RAT",
+      "lat": 6.6828,
+      "lng": 80.3992
+    },
+    {
+      "name": "Kegalle",
+      "code": "ST-KEG-01",
+      "districtCode": "KEG",
+      "lat": 7.2513,
+      "lng": 80.3464
+    }
+  ]
+}
