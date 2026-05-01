@@ -17,7 +17,12 @@ const origins = (process.env.ALLOWED_ORIGINS || "")
   .filter(Boolean);
 const allowAllOrigins = origins.includes("*");
 
-app.use(helmet());
+app.use(
+  helmet({
+    // Swagger UI uses inline assets that are blocked by Helmet's default CSP.
+    contentSecurityPolicy: false
+  })
+);
 app.use(
   cors({
     origin: allowAllOrigins || origins.length === 0 ? true : origins
