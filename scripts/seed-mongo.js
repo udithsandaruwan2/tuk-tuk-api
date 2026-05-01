@@ -156,7 +156,18 @@ export async function seedMongoData() {
   await TrackerDevice.insertMany(deviceDocs);
 
   const now = Date.now();
-  const pings = [];
+  const batch = [];
+  const BATCH_SIZE = 4000;
+  let insertedCount = 0;
+
+  async function flushBatch() {
+    if (!batch.length) return;
+    await LocationPing.insertMany(batch, { ordered: false });
+    insertedCount += batch.length;
+    console.info(`Inserted ping batch. Total inserted so far: ${insertedCount}`);
+    batch.length = 0;
+  }
+
   for (let i = 0; i < insertedVehicles.length; i += 1) {
     const v = insertedVehicles[i];
     const d = DISTRICTS[i % DISTRICTS.length];
@@ -167,7 +178,7 @@ export async function seedMongoData() {
           const recordedAt = new Date(
             now - (8 - day) * 24 * 60 * 60 * 1000 + (hour * 60 + minute) * 60 * 1000,
           );
-          pings.push({
+          batch.push({
             vehicleId: v._id,
             recordedAt,
             latitude: Number((d.lat + ((i % 10) - 5) * 0.001).toFixed(6)),
@@ -175,12 +186,15 @@ export async function seedMongoData() {
             speedKmh: 10 + (i % 20),
             headingDeg: (i * 17) % 360,
           });
+          if (batch.length >= BATCH_SIZE) {
+            await flushBatch();
+          }
         }
       }
     }
   }
-  await LocationPing.insertMany(pings, { ordered: false });
-  console.info(`Seeded MongoDB successfully. Pings inserted: ${pings.length}`);
+  await flushBatch();
+  console.info(`Seeded MongoDB successfully. Pings inserted: ${insertedCount}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

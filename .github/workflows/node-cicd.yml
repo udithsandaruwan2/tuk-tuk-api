@@ -33,6 +33,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
+          command_timeout: 40m
           script: |
             cd ~/tuk-tuk-api
             git pull origin main
@@ -40,6 +41,7 @@ jobs:
             export JWT_EXPIRES_IN='8h'
             export MONGODB_URI='mongodb://mongo:27017/tuk_tuk'
             export NODE_ENV='production'
+            export API_PORT='3000'
             docker compose down
             docker compose up -d --build
             docker compose exec -T api npm run db:seed:if-empty
