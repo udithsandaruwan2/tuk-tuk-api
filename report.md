@@ -1,379 +1,599 @@
-# Project Report: Tuk-Tuk Tracking API
+# Tuk-Tuk Tracking API — Technical & Project Report
 
-## Business Requirements Analysis
+**Purpose of this document:** Use it as the single source of truth when writing submissions, lecturer reports, handover notes, or architecture briefs. Fill placeholders marked `<…>` (repository URL, deployment host, student IDs) before final submission.
 
-### 1. Problem Context and Operational Need
-
-Urban and semi-urban law enforcement operations require continuous visibility over registered public transport movement, especially for safety monitoring, incident response, and jurisdictional accountability. In this project context, tuk-tuks are treated as monitored mobile assets that submit location pings to a centralized platform. Without centralized tracking, police authorities rely on fragmented and delayed reports, which weakens early detection of suspicious movement, slows investigations, and complicates inter-district coordination.
-
-The core business requirement is therefore to provide a secure backend API that supports:
-
-- near real-time monitoring of active vehicles,
-- historical movement retrieval for investigations,
-- geographic filtering by province and district,
-- role-based operational boundaries across administrative levels.
-
-This backend acts as a foundational service layer that can later power web dashboards, mobile interfaces, and analytics tools.
-
-### 2. Stakeholders
-
-The primary stakeholders are:
-
-- **HQ Administrators**: Require full national visibility, cross-boundary search, and management capabilities (e.g., vehicle onboarding and policy control).
-- **Provincial/District Police Users**: Require scoped visibility limited to assigned jurisdictions for operational integrity and least-privilege access.
-- **Device Clients**: Represent in-vehicle authenticated clients responsible for sending telemetry/location pings.
-
-Secondary stakeholders include academic evaluators, platform maintainers, and future frontend consumers that integrate with this API.
-
-### 3. Scope Definition
-
-The implemented project scope includes:
-
-- secure authentication and authorization,
-- role-aware data access control,
-- master data retrieval (provinces, districts, stations),
-- vehicle lifecycle APIs (list/register),
-- live location retrieval,
-- historical location retrieval with bounded window,
-- ingestion endpoint for device pings,
-- OpenAPI/Swagger documentation,
-- deployable containerized backend with cloud database connectivity.
-
-This scope directly addresses command-and-control backend concerns and aligns with typical public safety telemetry platform requirements.
-
-### 4. Out of Scope
-
-The following are explicitly out of scope in this submission:
-
-- end-user client applications (mobile/web UI),
-- hardware firmware implementation for GPS trackers,
-- physical sensor integration and real-world telematics validation,
-- command center visualization tooling,
-- law-enforcement workflow UX design.
-
-The backend is intentionally designed as a robust service foundation that can be extended by those components later.
-
-### 5. Non-Functional Requirements
-
-Key non-functional requirements and how they are addressed:
-
-- **Security**: JWT-based auth, role middleware, request validation, secure headers, rate limiting, CORS control, production-safe error responses.
-- **Performance**: indexed historical queries, pagination on list endpoints, capped history query range (max 7 days), efficient read patterns.
-- **Scalability**: stateless API design, cloud-managed PostgreSQL compatibility (Neon), containerized deployment, clear service boundaries for future decomposition.
-- **Data retention and governance readiness**: schema structure and timestamped pings support future retention policies, archival tiers, and compliance controls.
-
-These requirements were considered as first-class design constraints, not post-implementation add-ons.
+**Related files:** `README.md` (quick start), `.env.example` / `.env.docker.example` (configuration templates), `docker-compose.yml`, `prisma/schema.prisma`, `src/config/openapiPaths.js` (API catalog for Swagger).
 
 ---
 
-## Design, Architecture & Implementation
+## Table of contents
 
-### 1. RESTful API Design Principles
-
-The API follows REST-oriented conventions:
-
-- **Resource-based URIs**: `/api/provinces`, `/api/vehicles`, `/api/location/live`, etc.
-- **HTTP verbs by intent**:
-  - `GET` for retrieval,
-  - `POST` for creation/ingestion.
-- **Status code semantics**:
-  - `200` success retrieval,
-  - `201` created,
-  - `400` validation failures,
-  - `401` unauthorized,
-  - `403` forbidden by role/scope,
-  - `404` unknown resources,
-  - `500` internal server issues.
-- **Pagination** through `page` and `limit` query parameters for list/history endpoints.
-- **Consistent JSON response envelope** (`success`, `message`, `data`) for predictable client consumption.
-
-HATEOAS links were considered optional and not implemented in this version to keep payloads lightweight and focused for operational APIs.
-
-### 2. Architecture Pattern and Justification
-
-The solution adopts a layered architecture:
-
-- **Routes**: endpoint definitions and middleware composition.
-- **Controllers**: request-to-service orchestration and response formatting.
-- **Services**: core business logic and data access orchestration.
-- **Middleware**: authentication, role checks, validation, error handling, 404 fallback.
-- **Config layer**: DB client, Swagger configuration, environment-driven settings.
-
-This structure improves:
-
-- maintainability (clear separation of concerns),
-- testability (logic isolated from transport),
-- extensibility (new endpoints/roles added with minimal cross-cutting impact),
-- onboarding speed for future contributors.
-
-### 3. Data Model Design (PostgreSQL + Prisma)
-
-The backend uses PostgreSQL with Prisma ORM and a normalized schema:
-
-- `Province`
-- `District` (belongs to Province)
-- `PoliceStation` (belongs to District)
-- `Vehicle` (optionally mapped to current District)
-- `LocationPing` (belongs to Vehicle, time-series telemetry)
-- `User` (with role and optional scope relationships)
-
-Supporting enums:
-
-- `Role`: `HQ_ADMIN`, `PROVINCIAL_ADMIN`, `STATION_USER`, `DEVICE_CLIENT`
-- `VehicleStatus`: `ACTIVE`, `INACTIVE`, `MAINTENANCE`
-
-This schema preserves relational integrity for jurisdiction hierarchy and supports role-scoped filtering logic with minimal ambiguity.
-
-### 4. Indexing Strategy and Query Efficiency
-
-Indexing is central to location workloads:
-
-- `LocationPing(vehicleId, timestamp DESC)` for efficient per-vehicle history scans.
-- Uniques on `User.email`, `Vehicle.regNumber`, `Vehicle.deviceId`.
-- Secondary indexes on role/status/scope linkage fields.
-
-These choices prioritize the dominant read patterns:
-
-- latest/ordered history retrieval,
-- credential lookups,
-- filtered vehicle inventories.
-
-### 5. Authentication and Authorization Flow
-
-Authentication flow:
-
-1. User/device posts credentials to `/api/auth/login`.
-2. Password verified using bcrypt hash comparison.
-3. JWT access token issued with role and scope claims:
-  - user ID (`sub`),
-  - role,
-  - operational scope (`provinceId`, `stationId`, `vehicleId` where relevant).
-4. Client sends bearer token on protected requests.
-
-Authorization flow:
-
-- `authenticate` middleware verifies token integrity.
-- `authorizeRoles` middleware enforces role-level access.
-- service-level checks enforce data scope constraints (e.g., device can only submit pings for its assigned vehicle).
-
-Token lifecycle:
-
-- Current implementation uses short-lived access tokens (configurable, default 1 hour).
-- Refresh-token rotation is identified as a future enhancement in scaling/security roadmap.
-
-### 6. Validation, Rate Limiting, and Error Handling
-
-Validation:
-
-- zod schemas validate body/query/params.
-- examples include latitude/longitude bounds, date parsing, pagination constraints, and required payload fields.
-- input is parsed and passed through validated request context to avoid unsafe mutation.
-
-Rate limiting:
-
-- `/api/location/ping` protected with request-per-minute limit to reduce abuse and accidental floods.
-
-Error handling:
-
-- centralized error middleware emits standardized JSON errors,
-- production responses avoid leaking internals,
-- explicit API errors used for controlled business failures (invalid credentials, forbidden access, invalid date ranges, etc.).
-
-### 7. Security Controls and Standards Alignment
-
-Security controls implemented:
-
-- `helmet` for HTTP hardening (with Swagger-compatible CSP adjustment),
-- CORS with configurable allowlist / wildcard behavior,
-- HPP protection for parameter pollution mitigation,
-- JWT signature verification,
-- role and scope authorization checks,
-- defensive validation on all major request types.
-
-Alignment with **OWASP API Security Top 10** themes:
-
-- broken object level authorization mitigation via scoped access checks,
-- excessive data exposure mitigation via controlled response shapes,
-- mass assignment risk reduced through schema validation,
-- lack of resource/rate limiting mitigated for ingestion endpoint,
-- security misconfiguration addressed through explicit middleware strategy.
-
-### 8. Simulation Data Generation Methodology
-
-To avoid manual/static data authoring and ensure reproducibility:
-
-- Master data generator creates:
-  - 9 provinces,
-  - 25 districts,
-  - 20+ police stations with realistic mappings and coordinates.
-- Simulation generator creates:
-  - 220 vehicles,
-  - one-week movement traces.
-
-Movement logic:
-
-- base coordinates per assigned district,
-- periodic random coordinate drift to imitate movement,
-- low/zero movement during late-night hours,
-- bounded synthetic speed/heading values.
-
-Seeder then loads generated artifacts into PostgreSQL and inserts role-specific default users for testing.
-
-### 9. Deployment Architecture and Runtime
-
-Deployment uses:
-
-- containerized app (`Dockerfile`),
-- Traefik reverse proxy routing,
-- optional HTTPS automation via Let’s Encrypt,
-- environment-driven runtime configuration,
-- CI/CD workflow on GitHub Actions,
-- EC2 remote deployment over SSH.
-
-Database runs on Neon PostgreSQL, removing local DB dependency from production deployment and supporting managed cloud scaling primitives.
-
-### 10. API Documentation and Developer Experience
-
-OpenAPI is exposed through Swagger UI at `/docs`.
-Documentation includes all major routes, enabling:
-
-- quick manual testing,
-- integration onboarding for client developers,
-- endpoint discoverability during demos and evaluation.
-
-The project also includes root and health endpoints to assist operational checks and deployment smoke tests.
-
-### 11. ES6+ and Engineering Practices
-
-Codebase implementation uses modern JavaScript features:
-
-- ES modules,
-- async/await for non-blocking operations,
-- optional chaining and nullish handling for defensive access,
-- structured middleware composition,
-- consistent linting/testing scripts.
-
-These practices improve readability, maintainability, and runtime reliability.
+1. [Executive summary](#1-executive-summary)  
+2. [Business requirements](#2-business-requirements-analysis)  
+3. [Technology stack](#3-technology-stack)  
+4. [System architecture](#4-system-architecture)  
+5. [Data model](#5-data-model-postgresql--prisma)  
+6. [REST API catalog](#6-rest-api-catalog)  
+7. [Authentication, RBAC, and scoping](#7-authentication-rbac-and-scoping)  
+8. [Validation, rate limiting, and errors](#8-validation-rate-limiting-and-errors)  
+9. [API documentation (OpenAPI / Swagger)](#9-api-documentation-openapi--swagger)  
+10. [Local development](#10-local-development)  
+11. [Docker and Traefik](#11-docker-and-traefik)  
+12. [CI/CD and deployment](#12-cicd-and-deployment)  
+13. [Simulation data and seeding](#13-simulation-data-and-seeding)  
+14. [Testing](#14-testing)  
+15. [Security posture (OWASP-aligned)](#15-security-posture-owasp-aligned)  
+16. [Limitations, scaling, and roadmap](#16-limitations-scaling-and-roadmap)  
+17. [Privacy, ethics, and compliance](#17-privacy-ethics-and-compliance)  
+18. [Appendices](#18-appendices)
 
 ---
 
-## Appendix: Deployment Details
+## 1. Executive summary
 
-### 1. Live API URL
+This project delivers a **production-style REST API** for tracking registered three-wheeler (“tuk-tuk”) style vehicles used in a **Sri Lanka police / operations** context. The backend provides:
 
-- **Live API base URL**: `https://<APP_DOMAIN>/`
-- **Health check**: `https://<APP_DOMAIN>/health`
+- **JWT authentication** and **role-based access control (RBAC)** across HQ, provincial, station, and device roles.
+- **CRUD and list APIs** for administrative geography (provinces, districts, stations), **users**, **vehicles**, and **location pings**, plus **live** and **bounded history** reads.
+- **PostgreSQL** via **Prisma ORM**, suitable for **Neon** or any standard Postgres.
+- **OpenAPI 3** documentation served by **Swagger UI** (`/docs`, `/api-docs`) and JSON (`/openapi.json`).
+- **Docker** packaging, optional **Traefik** reverse proxy with **Let’s Encrypt**, and **GitHub Actions** deployment to **EC2**.
 
-### 2. Swagger Documentation
-
-- **Swagger UI**: `https://<APP_DOMAIN>/docs/`
-- **OpenAPI JSON**: exportable from Swagger UI or through the generated spec runtime.
-
-### 3. Repository and Access
-
-- **GitHub repository**: `<REPO_URL>`
-- README should include student identification as required by module instructions.
-- Lecturer/collaborator access should be granted according to submission policy.
-
-### 4. Environment and Secrets
-
-Deployment uses runtime secrets (GitHub Secrets + EC2 runtime file generation) for:
-
-- database URL,
-- JWT secret,
-- CORS config,
-- domain and HTTPS settings.
-
-No production credentials are committed to source control.
-
-### 5. AI Assistance Disclosure
-
-AI-assisted support was used for:
-
-- architecture drafting,
-- implementation acceleration,
-- documentation scaffolding,
-- deployment troubleshooting.
-
-All output was reviewed, adapted, and validated within the project context.
+The system is **stateless at the HTTP layer**, designed for horizontal scaling behind a reverse proxy, with the database as the primary shared state.
 
 ---
 
-## Limitations, Scaling & Further Concerns
+## 2. Business requirements analysis
 
-### 1. Current Functional and Technical Limits
+### 2.1 Problem context and operational need
 
-The current version is intentionally backend-first and has known practical limits:
+Urban and semi-urban law enforcement operations benefit from continuous visibility over registered public transport movement for safety monitoring, incident response, and jurisdictional accountability. Tuk-tuks are modeled as **monitored mobile assets** that submit **location pings** to a centralized platform. Without centralized tracking, authorities rely on fragmented reports, which weakens early detection of suspicious movement and complicates inter-district coordination.
 
-- History endpoint enforces a **maximum 7-day window** to contain heavy scans.
-- Location ingestion is synchronous request-response.
-- Live feed is pull-based (`GET /location/live`) rather than push-stream.
-- No WebSocket/SSE broadcast path for operator consoles.
-- Limited observability stack (no centralized metrics, tracing, or alert dashboards by default).
+The core business requirement is a **secure backend API** that supports:
 
-These are acceptable for coursework scope and moderate traffic prototypes but require evolution for high-scale production.
+- Near **real-time monitoring** of active vehicles (pull-based “live” endpoint).
+- **Historical movement** retrieval for investigations, with **time-bounded** queries.
+- **Geographic filtering** by province and district where applicable.
+- **Role-based operational boundaries** (HQ vs provincial vs station vs device).
 
-### 2. Performance and Scalability Strategy
+This backend is a **service layer** for future dashboards, mobile apps, and analytics.
 
-As ingestion scale grows (higher ping frequency, more vehicles, more concurrent operators), bottlenecks can emerge in write amplification and hot read paths.
+### 2.2 Stakeholders
 
-Recommended scaling trajectory:
+| Stakeholder | Need |
+|-------------|------|
+| **HQ administrators** | National visibility, cross-boundary search, master data and vehicle/user management. |
+| **Provincial / station users** | Scoped visibility to assigned jurisdiction (least privilege). |
+| **Device clients** | Authenticated ingestion of pings for an assigned vehicle. |
+| **Platform maintainers / evaluators** | Documented API, health checks, reproducible seeds, deployability. |
 
-1. **Time partitioning** of `LocationPing` by month/week to constrain index sizes and accelerate time-bounded queries.
-2. **Read replicas** for heavy analytical/history traffic separation from write-primary.
-3. **Redis caching** for `/location/live` snapshots to reduce repeated DB scans.
-4. **Message broker integration** (Kafka/RabbitMQ/NATS) for high-frequency ingest decoupling:
-  - API writes quickly to queue,
-  - consumer service performs durable persistence and enrichment.
-5. **Background materialization** of “latest vehicle location” table for O(1)-style live reads.
+### 2.3 In-scope capabilities
 
-### 3. Security Hardening Roadmap
+- Secure authentication and authorization.
+- Role-aware data access and list filtering.
+- Master data APIs: provinces, districts, stations (list, get, create, update, delete as per role rules).
+- Vehicle lifecycle APIs (list, search, get, create, update, delete).
+- User management (HQ).
+- Device ping ingestion; ping list/get/update/delete (HQ for mutating ping operations).
+- Live location snapshot; vehicle history with **maximum 7-day** window.
+- OpenAPI/Swagger documentation.
+- Containerized runtime; optional HTTPS edge; CI/CD to EC2.
 
-Current controls are solid for baseline API exposure, but production-grade law-enforcement systems require additional hardening:
+### 2.4 Out of scope
 
-- refresh token rotation with revocation lists,
-- short-lived access tokens and optional device-bound claims,
-- mTLS or device certificate pinning for trusted ingestion clients,
-- stricter IP/rate heuristics per device identity (not just by endpoint),
-- secret rotation policies and vault-based runtime retrieval,
-- advanced audit logging with tamper-evident retention.
+- End-user mobile/web UI (beyond Swagger).
+- Firmware for GPS hardware; real-world telematics certification.
+- Real-time push (WebSockets/SSE) to operator consoles.
+- Command-center visualization and case-management workflows.
 
-Compliance and governance concerns:
+### 2.5 Non-functional requirements (summary)
 
-- region-specific privacy laws and data minimization obligations,
-- configurable retention/erasure policies for historical telemetry,
-- access auditability for each role and resource.
+| Concern | Approach |
+|---------|----------|
+| **Security** | JWT, bcrypt, helmet, CORS allowlist, HPP, validation, rate limit on ping POST, structured errors. |
+| **Performance** | Pagination; indexed `(vehicleId, timestamp DESC)` for pings; bounded history window. |
+| **Scalability** | Stateless API; managed Postgres (e.g. Neon); clear layering for future queues/read replicas. |
+| **Operability** | `/health`, `/`, Docker, optional Traefik, GitHub Actions deploy script. |
 
-### 4. Reliability and Operational Concerns
+---
 
-For reliable operations in production:
+## 3. Technology stack
 
-- add circuit breakers and retry policies around DB/network boundaries,
-- define SLOs (ingestion latency, live feed freshness, auth response time),
-- enable structured logs and distributed traces,
-- add readiness/liveness probes and automated rollback strategy in CI/CD.
+| Layer | Technology |
+|-------|------------|
+| Runtime | **Node.js 20+** (ES modules) |
+| HTTP | **Express 5** |
+| ORM / DB | **Prisma 6** + **PostgreSQL** |
+| Auth | **jsonwebtoken**, **bcryptjs** |
+| Validation | **zod** |
+| Hardening | **helmet**, **cors**, **hpp**, **express-rate-limit** |
+| API docs | **swagger-ui-express**, hand-maintained **OpenAPI 3.0.3** in `src/config/` |
+| Container | **Docker** (`node:20-slim` + OpenSSL for Prisma) |
+| Edge (optional) | **Traefik v2.11**, Let’s Encrypt HTTP-01 |
+| CI/CD | **GitHub Actions**, **appleboy/ssh-action** for EC2 |
 
-Disaster recovery considerations include:
+---
 
-- managed backups and point-in-time recovery,
-- tested restore runbooks,
-- environment parity for staging and production.
+## 4. System architecture
 
-### 5. Functional Extension Opportunities
+### 4.1 Layered application structure
 
-Future feature roadmap can include:
+```
+Client / Device
+      │
+      ▼
+┌─────────────────────────────────────────┐
+│  Express app (src/app.js)               │
+│  • Security middleware (helmet, cors…)   │
+│  • JSON body parser                      │
+│  • Rate limit (ping route)               │
+│  • Routes → controllers → services       │
+│  • Central error + 404 handlers          │
+└─────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────┐
+│  PostgreSQL (Neon or self-hosted)       │
+│  • Prisma Client                         │
+└─────────────────────────────────────────┘
+```
 
-- dedicated mobile/web dashboards for command staff,
-- map-based playback and timeline exploration,
-- route anomaly detection using historical baselines,
-- geofencing alerts for high-risk zones or boundary breaches,
-- suspicious behavior scoring models,
-- case-linked evidentiary exports for investigations.
+**Code layout (conceptual):**
 
-These features are now feasible because the current backend provides a cleanly structured foundation with scoped access, relational geography, and standardized telemetry endpoints.
+| Area | Responsibility |
+|------|------------------|
+| `src/routes/*.js` | Mount paths, compose middleware (`authenticate`, `authorizeRoles`, `validate`, `asyncHandler`). |
+| `src/controllers/*.js` | Map HTTP to service calls; shape JSON responses. |
+| `src/services/*.js` | Business rules, Prisma queries, scope checks. |
+| `src/middleware/` | Auth, validation, errors, 404. |
+| `src/validators/` | zod schemas for body/query/params. |
+| `src/config/` | DB, Swagger/OpenAPI assembly, path enrichment. |
 
-### 6. Final Reflection
+### 4.2 Request lifecycle (protected route)
 
-The project successfully delivers a secure, role-aware, documented REST backend for telemetry visibility and investigation support. It demonstrates how practical API engineering principles (clean architecture, schema discipline, scoped authorization, and deployment automation) can be combined into a realistic public-sector operations platform baseline.
+1. **Helmet / CORS / HPP / JSON** apply globally.  
+2. **`authenticate`** verifies JWT and attaches `req.user`.  
+3. **`authorizeRoles`** ensures role is allowed for the route class.  
+4. **`validate`** parses and attaches `req.validated` (Express 5–safe; avoids mutating `req.query` in ways that break).  
+5. **Controller** calls **service** with validated input and user context.  
+6. **Service** enforces **object-level scope** (e.g. station user only sees own district/station slice).  
+7. **Response** uses a consistent envelope: `{ success, message, data }` (where applicable).  
+8. Errors flow to **`errorHandler`** for normalized status and body.
 
-While not yet a full end-user product, the implemented backend is a robust core service that is technically prepared for iterative scaling, stronger compliance controls, and advanced analytics integrations.
+---
+
+## 5. Data model (PostgreSQL + Prisma)
+
+### 5.1 Entities
+
+| Model | Description |
+|-------|-------------|
+| **Province** | Top-level region; `code` unique. |
+| **District** | Belongs to `Province`; `code` unique; indexed on `provinceId`. |
+| **PoliceStation** | Belongs to `District`; lat/lng; `code` unique. |
+| **Vehicle** | `regNumber` and `deviceId` unique; optional `driverName`; `VehicleStatus`; optional `currentDistrictId`. |
+| **LocationPing** | Belongs to `Vehicle`; `lat`, `lng`, optional `speed`/`heading`, `timestamp`; **`@@index([vehicleId, timestamp(sort: Desc)])`** for history. |
+| **User** | `email` unique; `passwordHash`; `Role`; optional `stationId`, `provinceId`, `vehicleId` for scoping. |
+
+### 5.2 Enumerations
+
+- **`Role`:** `HQ_ADMIN`, `PROVINCIAL_ADMIN`, `STATION_USER`, `DEVICE_CLIENT`  
+- **`VehicleStatus`:** `ACTIVE`, `INACTIVE`, `MAINTENANCE`
+
+### 5.3 Indexing rationale
+
+- **Pings:** composite index on `(vehicleId, timestamp DESC)` supports vehicle history and recent pings.  
+- **Uniques:** prevent duplicate registrations and credential collision (`User.email`, `Vehicle.regNumber`, `Vehicle.deviceId`).  
+- **Foreign keys:** cascade or set-null as defined in schema for referential integrity.
+
+---
+
+## 6. REST API catalog
+
+Base path for business APIs: **`/api`**. Public system routes: **`/`**, **`/health`**.
+
+> **Note:** Exact RBAC per row is enforced in code (services + middleware). The table summarizes the primary rule set; always confirm in `src/routes/*.js` and services if auditing for production.
+
+### 6.1 Auth
+
+| Method | Path | Auth | Summary |
+|--------|------|------|---------|
+| POST | `/api/auth/login` | Public | Email + password → JWT (`data.accessToken`). |
+
+### 6.2 Master data — provinces
+
+| Method | Path | Typical roles |
+|--------|------|----------------|
+| GET | `/api/provinces` | HQ, provincial, station (read) |
+| GET | `/api/provinces/:id` | Same |
+| POST | `/api/provinces` | HQ only |
+| PATCH | `/api/provinces/:id` | HQ only |
+| DELETE | `/api/provinces/:id` | HQ only |
+
+### 6.3 Master data — districts
+
+| Method | Path | Typical roles |
+|--------|------|----------------|
+| GET | `/api/districts` | Read roles (scoped filters may apply) |
+| GET | `/api/districts/:id` | Read roles |
+| POST | `/api/districts` | HQ only |
+| PATCH | `/api/districts/:id` | HQ only |
+| DELETE | `/api/districts/:id` | HQ only |
+
+Query examples: `page`, `limit`, `provinceId`, `search` (see OpenAPI).
+
+### 6.4 Master data — stations
+
+| Method | Path | Typical roles |
+|--------|------|----------------|
+| GET | `/api/stations` | Read roles |
+| GET | `/api/stations/:id` | Read roles |
+| POST | `/api/stations` | HQ only |
+| PATCH | `/api/stations/:id` | HQ only |
+| DELETE | `/api/stations/:id` | HQ only |
+
+### 6.5 Users (HQ)
+
+| Method | Path | Typical roles |
+|--------|------|----------------|
+| GET | `/api/users` | HQ only |
+| GET | `/api/users/:id` | HQ only |
+| POST | `/api/users` | HQ only |
+| PATCH | `/api/users/:id` | HQ only |
+| DELETE | `/api/users/:id` | HQ only (cannot delete self) |
+
+### 6.6 Vehicles
+
+| Method | Path | Typical roles |
+|--------|------|----------------|
+| GET | `/api/vehicles` | HQ, provincial, station (list scoped for non-HQ) |
+| GET | `/api/vehicles/:id` | Same |
+| POST | `/api/vehicles` | HQ only |
+| PATCH | `/api/vehicles/:id` | HQ only |
+| DELETE | `/api/vehicles/:id` | HQ only |
+
+### 6.7 Location
+
+| Method | Path | Typical roles |
+|--------|------|----------------|
+| POST | `/api/location/ping` | **DEVICE_CLIENT** only (ingestion) |
+| GET | `/api/location/pings` | HQ, provincial, station, device (read; scoped) |
+| GET | `/api/location/pings/:id` | Same |
+| PATCH | `/api/location/pings/:id` | **HQ only** |
+| DELETE | `/api/location/pings/:id` | **HQ only** |
+| GET | `/api/location/live` | Authenticated (query filters) |
+| GET | `/api/location/history/:vehicleId` | Authenticated (scoped; **max 7 days**; `startDate` + `endDate` required) |
+
+**Rate limiting:** `POST /api/location/ping` is limited (e.g. per-minute cap) via `express-rate-limit`.
+
+### 6.8 System
+
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/` | Public — API metadata and doc links |
+| GET | `/health` | Public — liveness |
+
+---
+
+## 7. Authentication, RBAC, and scoping
+
+### 7.1 Login and JWT
+
+1. Client sends `POST /api/auth/login` with JSON `{ email, password }`.  
+2. Server verifies password with **bcrypt** against `User.passwordHash`.  
+3. On success, issues a **JWT** containing at least `sub` (user id), **role**, and scope fields (`provinceId`, `stationId`, `vehicleId`) when present.  
+4. Protected routes expect header: **`Authorization: Bearer <token>`** (Swagger security scheme: `bearerAuth`).
+
+**Expiry:** controlled by `JWT_EXPIRES_IN` (e.g. `1h`). Refresh tokens are **not** implemented in this version (see roadmap).
+
+### 7.2 Middleware
+
+- **`authenticate`:** Validates JWT, populates `req.user`.  
+- **`authorizeRoles(...)`:** Ensures `req.user.role` is in the allowed set for the route.
+
+### 7.3 Service-level scoping
+
+Beyond route-level roles, **services** enforce **data scope** (e.g. provincial user limited to their province’s districts/stations/vehicles where applicable; device client limited to assigned vehicle for pings). This mitigates **IDOR**-style issues for list/get endpoints.
+
+---
+
+## 8. Validation, rate limiting, and errors
+
+### 8.1 Validation (zod)
+
+- **Body / query / params** validated via `src/middleware/validate.js`.  
+- Parsed values exposed as **`req.validated`** to avoid unsafe reliance on raw `req.query` / `req.params` under Express 5.  
+- Examples: pagination bounds, geo bounds, required date ranges for history, enums for roles and vehicle status.
+
+### 8.2 Rate limiting
+
+- **`/api/location/ping`:** dedicated limiter window (abuse / flood protection).
+
+### 8.3 Errors
+
+- **`ApiError`** for controlled HTTP statuses and messages.  
+- **`errorHandler`** returns consistent JSON and avoids leaking stack traces in production.  
+- **`notFoundHandler`** for unknown routes.
+
+---
+
+## 9. API documentation (OpenAPI / Swagger)
+
+### 9.1 Endpoints for humans
+
+| Resource | URL |
+|----------|-----|
+| Swagger UI (primary) | **`GET /docs`** (may redirect to `/docs/`) |
+| Swagger UI (alias) | **`GET /api-docs`** |
+| OpenAPI JSON | **`GET /openapi.json`**, also **`/docs/openapi.json`**, **`/api-docs/openapi.json`** |
+
+### 9.2 Spec construction
+
+- **Paths:** `src/config/openapiPaths.js` — every operational route is listed with tags, summaries, parameters, and request body examples.  
+- **Assembly:** `src/config/swagger.js` — merges `info`, `components.schemas`, `servers`, and `paths`.  
+- **Enrichment:** `src/config/openapiEnrich.js` —  
+  - Sets **`security: []`** only for `GET /health`, `GET /`, `POST /api/auth/login`.  
+  - Adds **`bearerAuth`** to all other operations if missing.  
+  - Adds **`operationId`** values.  
+  - Injects minimal **`schema`** for JSON bodies that only had `example` (better Swagger UX).  
+- **`buildServers()`:** If **`PUBLIC_BASE_URL`** is set, the spec uses it as the server URL for “Try it out” behind proxies; otherwise **`/`** (same origin).
+
+### 9.3 How to try the API in Swagger
+
+1. Open `/docs` (or `/api-docs`).  
+2. Execute **`POST /api/auth/login`** without Authorize.  
+3. Copy **`data.accessToken`**.  
+4. Click **Authorize**, paste **only the JWT** (no `Bearer ` prefix if the UI is configured that way — match project’s Swagger `bearerAuth` description).  
+5. Call protected operations.
+
+### 9.4 Helmet and Swagger
+
+**Content Security Policy** is disabled for the whole app in current configuration so Swagger’s inline bootstrapping works. **`crossOriginEmbedderPolicy`** is disabled to reduce friction with Swagger assets. For stricter production hardening, consider serving docs on a separate subdomain or using a stricter CSP with nonces (future work).
+
+---
+
+## 10. Local development
+
+1. **Clone** the repository (`<REPO_URL>`).  
+2. **`cp .env.example .env`** and set `DATABASE_URL`, `JWT_SECRET`, etc.  
+3. **`npm install`**  
+4. **`npm run prisma:generate`** and **`npm run prisma:push`** (or migrations if you add them).  
+5. **Generate and load seed data (optional demo):**  
+   - `npm run seed:master`  
+   - `npm run seed:sim`  
+   - `npm run seed:db`  
+6. **Run:** `npm run dev` (watch) or `npm start`.  
+7. **Default port:** `PORT` (default **8000**).
+
+**Default seed users** (password **`Password123!`** unless you change seeds):
+
+- `hq.admin@example.com` — HQ_ADMIN  
+- `prov.admin@example.com` — PROVINCIAL_ADMIN  
+- `station.user@example.com` — STATION_USER  
+- `device.client@example.com` — DEVICE_CLIENT  
+
+---
+
+## 11. Docker and Traefik
+
+### 11.1 Dockerfile notes
+
+- Base **`node:20-slim`**.  
+- **OpenSSL** and **ca-certificates** are installed so **Prisma** can detect OpenSSL correctly (avoids runtime warnings and potential engine issues).
+
+### 11.2 Default Compose (API only)
+
+```bash
+docker compose up --build -d
+```
+
+- Starts **`app`** only (Traefik is on a **profile**).  
+- Published port **`8000:8000`** → **`http://localhost:8000`**.
+
+**Foreground vs background:** `docker compose up` attaches to logs; **`docker compose up -d`** runs detached. Use **`docker compose logs -f`** to follow logs and **`docker compose down`** to stop.
+
+### 11.3 Traefik profile (HTTPS)
+
+```bash
+docker compose --profile traefik up --build -d
+```
+
+**Important — Compose variable substitution:**
+
+- Interpolation in `docker-compose.yml` (`labels`, Traefik `command`) uses the project **`.env`** file next to `docker-compose.yml`, **or** variables exported in the shell.  
+- It does **not** read `env_file: .env.docker` for those interpolations.  
+- Set **`APP_DOMAIN`** and **`LETSENCRYPT_EMAIL`** in a root **`.env`** (or export them) before enabling Traefik.  
+- If `APP_DOMAIN` is unset, labels default to **`api.localhost`** so Traefik never receives an empty `Host()` rule.  
+- **`LETSENCRYPT_EMAIL`:** default in compose avoids `@` inside `${VAR:-default}` because **`@` breaks Docker Compose interpolation**; a safe placeholder domain is used unless you set the variable.
+
+**Let’s Encrypt** requires a **public DNS** name pointing to the host and reachable **HTTP-01** on port **80**.
+
+### 11.4 Container environment
+
+- **`env_file: .env.docker`** supplies runtime secrets to the Node process (`DATABASE_URL`, `JWT_SECRET`, etc.).  
+- Keep **secrets out of Git**; use GitHub Secrets / server files in production.
+
+---
+
+## 12. CI/CD and deployment
+
+### 12.1 GitHub Actions workflow (`.github/workflows/node-cicd.yml`)
+
+**Trigger:** push to **`main`**.
+
+**Stages:**
+
+1. Checkout  
+2. Node 20 + `npm ci`  
+3. `npx prisma generate`  
+4. **`npm run lint`**  
+5. **`npm test`**  
+6. **Deploy over SSH** to EC2: `git pull`, write **`.env.docker`**, export `APP_DOMAIN` / `LETSENCRYPT_EMAIL`, **`docker compose up -d --build --remove-orphans`**
+
+**Secrets (typical):** `EC2_HOST`, `EC2_USER`, `EC2_KEY`, `PORT`, `NODE_ENV`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `ALLOWED_ORIGINS`, `DATABASE_URL`, `APP_DOMAIN`, `LETSENCRYPT_EMAIL`.
+
+> **Note:** Default workflow `docker compose up` does **not** pass `--profile traefik`. If you need Traefik on EC2, either add the profile to the script or run Traefik separately. Align the workflow with your production topology.
+
+### 12.2 Live URLs (fill for your deployment)
+
+| Item | Value |
+|------|--------|
+| Public API base | `https://<APP_DOMAIN>/` |
+| Health | `https://<APP_DOMAIN>/health` |
+| Swagger | `https://<APP_DOMAIN>/docs` |
+| OpenAPI JSON | `https://<APP_DOMAIN>/openapi.json` |
+
+---
+
+## 13. Simulation data and seeding
+
+### 13.1 Generators
+
+- **`scripts/generate-master-data.js`** — provinces, districts, stations with geographic coherence.  
+- **`scripts/generate-sim-data.js`** — many vehicles and time-series pings (synthetic movement).
+
+### 13.2 Loader
+
+- **`scripts/seed-postgres.js`** (or equivalent in repo) loads generated JSON into PostgreSQL via Prisma.
+
+### 13.3 Methodology (high level)
+
+- Master data uses realistic **Sri Lanka–oriented** administrative splits (counts described in earlier coursework narrative: e.g. multiple provinces/districts/stations).  
+- Simulation uses **district-biased** coordinates with drift, speed/heading, and reduced movement at night.
+
+*(Adjust counts if your generated files differ — verify on disk after running generators.)*
+
+---
+
+## 14. Testing
+
+- **Framework:** Jest (`NODE_ENV=test`, ESM experimental VM modules).  
+- **HTTP testing:** supertest against the Express **`app`** instance (no listen required).  
+- **Coverage today:** at minimum **health** (`GET /health`) and **Swagger/OpenAPI** smoke tests (`/openapi.json`, `/docs/`, `/api-docs/`, redirect behavior).  
+
+**Recommendations for coursework / production:**
+
+- Add integration tests for **login** and one **scoped** list endpoint per role.  
+- Add contract tests that **OpenAPI paths** match registered routes (grep or codegen).
+
+---
+
+## 15. Security posture (OWASP-aligned)
+
+| Theme | Mitigation |
+|-------|------------|
+| Broken authentication | bcrypt; JWT verification; login validation. |
+| Broken object level authorization | Role middleware + **service-level scope** checks. |
+| Excessive data exposure | Controlled DTOs / response shaping in services. |
+| Mass assignment | zod restricts writable fields per endpoint. |
+| Lack of rate limiting | Rate limit on high-abuse ingestion route. |
+| Security misconfiguration | helmet (with Swagger trade-offs), CORS allowlist, env-based secrets. |
+| Injection | Prisma parameterized queries; zod validation. |
+
+---
+
+## 16. Limitations, scaling, and roadmap
+
+### 16.1 Current limits
+
+- History capped (**max 7 days**) to control query cost.  
+- **Synchronous** ping ingestion (no queue).  
+- **Pull-based** “live” rather than push subscriptions.  
+- No refresh-token flow.  
+- Limited automated integration test depth.
+
+### 16.2 Scaling ideas
+
+- Partition **`LocationPing`** by time.  
+- Read replicas for heavy history.  
+- Cache for live snapshot (Redis).  
+- Message broker for ingest decoupling.  
+- Materialized “latest location” table.
+
+### 16.3 Security roadmap
+
+- Refresh tokens + revocation.  
+- Device attestation / mTLS for high-trust ingest.  
+- Stricter per-device rate limits.  
+- Vault for secrets; audit log store.
+
+### 16.4 Product extensions
+
+- Dashboards, map playback, geofencing, anomaly detection, case exports.
+
+---
+
+## 17. Privacy, ethics, and compliance
+
+- Location data is **sensitive**; production use requires **lawful basis**, **retention limits**, and **access auditing** aligned with local privacy law.  
+- This codebase is a **technical demonstration**; governance policies are the operator’s responsibility.  
+- Minimize stored fields; encrypt at rest (database provider feature); secure transport (HTTPS).
+
+---
+
+## 18. Appendices
+
+### Appendix A — Environment variables (local `.env`)
+
+| Variable | Purpose |
+|----------|---------|
+| `PORT` | HTTP port (default 8000) |
+| `NODE_ENV` | `development` / `production` / `test` |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | Signing key for JWT |
+| `JWT_EXPIRES_IN` | Token lifetime (e.g. `1h`) |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins; `*` for allow-all (use carefully) |
+| `PUBLIC_BASE_URL` | Optional; public URL for Swagger “Try it out” |
+
+### Appendix B — `.env.docker` (container runtime)
+
+Same core vars as above for the app container. Used by **`env_file`** in Compose.
+
+### Appendix C — Compose-time `.env` (project root, for Traefik labels)
+
+| Variable | Purpose |
+|----------|---------|
+| `APP_DOMAIN` | Host rule for Traefik router |
+| `LETSENCRYPT_EMAIL` | ACME account email |
+
+### Appendix D — NPM scripts (reference)
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Run API with watch |
+| `npm start` | Run API |
+| `npm test` | Jest |
+| `npm run lint` | ESLint |
+| `npm run prisma:generate` | Generate Prisma client |
+| `npm run prisma:push` | Push schema to DB |
+| `npm run seed:master` | Generate master JSON |
+| `npm run seed:sim` | Generate simulation JSON |
+| `npm run seed:db` | Load seeds into DB |
+
+### Appendix E — Repository checklist for submission
+
+- [ ] Fill `<REPO_URL>` and deployment URLs in this report.  
+- [ ] Confirm `.env.example` / `.env.docker.example` match current code.  
+- [ ] Run `npm test` and `npm run lint` before zip/submit.  
+- [ ] Redact all secrets from PDF/screenshots.  
+- [ ] Grant lecturer access per institution policy.
+
+### Appendix F — AI assistance disclosure (template)
+
+If required by your institution, state clearly:
+
+- Whether **AI tools** assisted with design, implementation, debugging, or documentation.  
+- That outputs were **reviewed, tested, and adapted** by the project authors.
+
+---
+
+## Document history
+
+| Version | Date | Notes |
+|---------|------|--------|
+| 2.0 | 2026-05-03 | Expanded with full API catalog, Docker/Traefik/Compose details, OpenAPI section, CI/CD, appendices. |
+| 1.0 | *(prior)* | Original business + architecture narrative. |
+
+---
+
+*End of report.*
