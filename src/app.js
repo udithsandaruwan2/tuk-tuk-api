@@ -3,7 +3,10 @@ import express from "express";
 import helmet from "helmet";
 import hpp from "hpp";
 import rateLimit from "express-rate-limit";
+import { access } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
+import { execFile as execFileCb } from "node:child_process";
 import swaggerUi from "swagger-ui-express";
 import { apiRouter } from "./routes/index.js";
 import { notFoundHandler } from "./middleware/notFoundHandler.js";
@@ -18,6 +21,17 @@ const origins = (process.env.ALLOWED_ORIGINS || "")
   .filter(Boolean);
 const allowAllOrigins = origins.includes("*");
 const generatedDataDir = path.resolve("data/generated");
+const execFile = promisify(execFileCb);
+
+const ensureFileExists = async (filePath, generatorScript) => {
+  try {
+    await access(filePath);
+    return;
+  } catch {
+    await execFile(process.execPath, [path.resolve(generatorScript)]);
+    await access(filePath);
+  }
+};
 
 const absoluteUrl = (req, routePath) => `${req.protocol}://${req.get("host")}${routePath}`;
 
@@ -86,12 +100,24 @@ app.get("/downloads/swagger.json", (_req, res) => {
   res.json(swaggerSpec);
 });
 
-app.get("/downloads/master-data.json", (_req, res) => {
-  res.download(path.join(generatedDataDir, "master-data.json"), "master-data.json");
+app.get("/downloads/master-data.json", async (_req, res, next) => {
+  const filePath = path.join(generatedDataDir, "master-data.json");
+  try {
+    await ensureFileExists(filePath, "scripts/generate-master-data.js");
+    res.download(filePath, "master-data.json");
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.get("/downloads/sim-seed-sample.json", (_req, res) => {
-  res.download(path.join(generatedDataDir, "sim-seed-sample.json"), "sim-seed-sample.json");
+app.get("/downloads/sim-seed-sample.json", async (_req, res, next) => {
+  const filePath = path.join(generatedDataDir, "sim-seed-sample.json");
+  try {
+    await ensureFileExists(filePath, "scripts/generate-sim-data.js");
+    res.download(filePath, "sim-seed-sample.json");
+  } catch (error) {
+    next(error);
+  }
 });
 
 const swaggerUiOptions = {
