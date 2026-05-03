@@ -3,6 +3,7 @@ import express from "express";
 import helmet from "helmet";
 import hpp from "hpp";
 import rateLimit from "express-rate-limit";
+import path from "node:path";
 import swaggerUi from "swagger-ui-express";
 import { apiRouter } from "./routes/index.js";
 import { notFoundHandler } from "./middleware/notFoundHandler.js";
@@ -16,6 +17,9 @@ const origins = (process.env.ALLOWED_ORIGINS || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const allowAllOrigins = origins.includes("*");
+const generatedDataDir = path.resolve("data/generated");
+
+const absoluteUrl = (req, routePath) => `${req.protocol}://${req.get("host")}${routePath}`;
 
 app.use(
   helmet({
@@ -47,6 +51,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/", (_req, res) => {
+  const req = _req;
   res.status(200).json({
     success: true,
     message: "Tuk-Tuk API is running",
@@ -55,6 +60,11 @@ app.get("/", (_req, res) => {
       docs: "/docs",
       apiDocs: "/api-docs",
       openapiJson: "/openapi.json",
+      downloadable: {
+        swaggerJson: absoluteUrl(req, "/downloads/swagger.json"),
+        masterDataJson: absoluteUrl(req, "/downloads/master-data.json"),
+        sampleSimulationJson: absoluteUrl(req, "/downloads/sim-seed-sample.json")
+      },
       apiBase: "/api"
     }
   });
@@ -68,6 +78,21 @@ const sendOpenApiJson = (_req, res) => {
 app.get("/openapi.json", sendOpenApiJson);
 app.get("/docs/openapi.json", sendOpenApiJson);
 app.get("/api-docs/openapi.json", sendOpenApiJson);
+app.get("/swagger.json", sendOpenApiJson);
+
+app.get("/downloads/swagger.json", (_req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", "attachment; filename=\"swagger.json\"");
+  res.json(swaggerSpec);
+});
+
+app.get("/downloads/master-data.json", (_req, res) => {
+  res.download(path.join(generatedDataDir, "master-data.json"), "master-data.json");
+});
+
+app.get("/downloads/sim-seed-sample.json", (_req, res) => {
+  res.download(path.join(generatedDataDir, "sim-seed-sample.json"), "sim-seed-sample.json");
+});
 
 const swaggerUiOptions = {
   swaggerOptions: {
