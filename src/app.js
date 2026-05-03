@@ -20,7 +20,8 @@ const allowAllOrigins = origins.includes("*");
 app.use(
   helmet({
     // Swagger UI uses inline assets that are blocked by Helmet's default CSP.
-    contentSecurityPolicy: false
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
   })
 );
 app.use(
@@ -52,12 +53,38 @@ app.get("/", (_req, res) => {
     data: {
       health: "/health",
       docs: "/docs",
+      apiDocs: "/api-docs",
+      openapiJson: "/openapi.json",
       apiBase: "/api"
     }
   });
 });
 
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+const sendOpenApiJson = (_req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.json(swaggerSpec);
+};
+
+app.get("/openapi.json", sendOpenApiJson);
+app.get("/docs/openapi.json", sendOpenApiJson);
+app.get("/api-docs/openapi.json", sendOpenApiJson);
+
+const swaggerUiOptions = {
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    docExpansion: "list",
+    filter: true,
+    tryItOutEnabled: true,
+    syntaxHighlight: false
+  },
+  customSiteTitle: "Tuk-Tuk API Docs"
+};
+
+// `swaggerUi.serve` is an array of static middlewares; spread it so CSS/JS assets load.
+// Mount without a trailing slash; `/docs` → `/docs/` is handled by the UI stack (301).
+app.use("/docs", ...swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+app.use("/api-docs", ...swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 app.use("/api", apiRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);

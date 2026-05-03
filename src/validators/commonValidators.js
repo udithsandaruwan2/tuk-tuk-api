@@ -9,4 +9,8 @@ const objectIdParamSchema = z.object({
   vehicleId: z.string().min(1)
 });
 
-export { paginationQuerySchema, objectIdParamSchema };
+const idParamSchema = z.object({
+  id: z.string().min(1)
+});
+
+export { paginationQuerySchema, objectIdParamSchema, idParamSchema };
