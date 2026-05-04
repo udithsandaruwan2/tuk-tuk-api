@@ -1,5 +1,17 @@
 # Variable substitution in `labels` / `command` uses the project `.env` file (or your shell),
-# not `env_file` on services. For Traefik + HTTPS, set APP_DOMAIN and LETSENCRYPT_EMAIL in `.env`.
+# not `env_file` on services. Quick start: `cp compose.env.example .env` then edit emails/secrets.
+#
+# Traefik checklist (production HTTPS — matches Cloudflare + origin TLS):
+# 1) Entrypoints: web=:80, websecure=:443
+# 2) Force HTTP → HTTPS: web → websecure (scheme https)
+# 3) Let's Encrypt HTTP-01 on `web`; certs in /letsencrypt (volume letsencrypt_data)
+# 4) App router: Host(APP_DOMAIN), entrypoints=websecure, tls=true, certresolver=letsencrypt
+# 5) Ports published: 80, 443, 8080 (dashboard)
+#
+# HTTPS behaviour (profile `traefik`):
+# - Entrypoint `web` (:80) globally redirects HTTP → HTTPS on `websecure` (:443).
+# - Let's Encrypt HTTP-01 uses `web` first; Traefik serves `/.well-known/acme-challenge/*` before redirect.
+# - Certificates persist in Docker volume `letsencrypt_data` (or bind-mount ./letsencrypt:/letsencrypt if you prefer).
 #
 # Local API only (default):  docker compose up --build   → http://localhost:8000
 # With Traefik + TLS:        docker compose --profile traefik up --build
@@ -30,6 +42,7 @@ services:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Persist issued certificates across container recreates.
       - letsencrypt_data:/letsencrypt
     networks:
       - app_network
@@ -43,8 +56,13 @@ services:
       - "8000:8000"
     labels:
       - "traefik.enable=true"
+      # HSTS on HTTPS responses (browsers remember to use HTTPS for this host).
+      - "traefik.http.middlewares.tuk-hsts.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.tuk-hsts.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.tuk-hsts.headers.stsPreload=false"
       - "traefik.http.routers.app.entrypoints=websecure"
-      - "traefik.http.routers.app.rule=Host(`${APP_DOMAIN:-api.localhost}`)"
+      - "traefik.http.routers.app.rule=Host(`${APP_DOMAIN:-api.udithsandaruwan.com}`)"
+      - "traefik.http.routers.app.middlewares=tuk-hsts@docker"
       - "traefik.http.routers.app.tls=true"
       - "traefik.http.routers.app.tls.certresolver=letsencrypt"
       - "traefik.http.services.app.loadbalancer.server.port=8000"

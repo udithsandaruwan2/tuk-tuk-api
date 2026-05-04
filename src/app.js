@@ -15,6 +15,12 @@ import { swaggerSpec } from "./config/swagger.js";
 
 const app = express();
 
+// Behind Traefik / another reverse proxy: set TRUST_PROXY=true so req.secure, req.ip, and
+// absolute URLs (e.g. /) respect X-Forwarded-* headers.
+if (process.env.TRUST_PROXY === "true" || process.env.TRUST_PROXY === "1") {
+  app.set("trust proxy", 1);
+}
+
 const origins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())

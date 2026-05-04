@@ -48,10 +48,14 @@ jobs:
             JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
             ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
             DATABASE_URL=${DATABASE_URL}
+            TRUST_PROXY=true
             EOF
+            if [ -n "${APP_DOMAIN}" ]; then
+              echo "PUBLIC_BASE_URL=https://${APP_DOMAIN}" >> .env.docker
+            fi
             export APP_DOMAIN="${APP_DOMAIN}"
             export LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL}"
-            docker compose up -d --build --remove-orphans
+            docker compose --profile traefik up -d --build --remove-orphans
         env:
           PORT: ${{ secrets.PORT }}
           NODE_ENV: ${{ secrets.NODE_ENV }}
